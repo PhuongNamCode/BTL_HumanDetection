@@ -1,0 +1,310 @@
+<!DOCTYPE HTML><html>
+<head>
+  <title>ESP32 DASHBOARD </title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+  <link rel="icon" href="data:,">
+  <style>
+    html {font-family: Arial; display: inline-block; text-align: center;}
+    h1 {  font-size: 2rem;}
+    body {  margin: 0;}
+    .topnav { overflow: hidden; background-color: #2f4468; color: white; font-size: 1.7rem; }
+    .content { padding: 20px; }
+    .card  { background-color: white; box-shadow: 2px 2px 12px 1px rgba(140,140,140,.5); }
+    .cards { max-width: 700px; margin: 0 auto; display: grid; grid-gap: 2rem; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+    .reading { font-size: 2.8rem; }
+    .timestamp { color: #bebebe; font-size: 1rem; }
+    .card-title{ font-size: 1.2rem; font-weight : bold; }
+    .card.temperature { color: #B10F2E; }
+    .card.humidity { color: #50B8B4; }
+
+    .switch {
+        position: relative;
+        display: inline-block;
+        width: 60px;
+        height: 34px;
+      }
+      
+      .switch input { 
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      
+      .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        -webkit-transition: .4s;
+        transition: .4s;
+      }
+      
+      .slider:before {
+        position: absolute;
+        content: "";
+        height: 26px;
+        width: 26px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        -webkit-transition: .4s;
+        transition: .4s;
+      }
+      
+      input:checked + .slider {
+        background-color: #2196F3;
+      }
+      
+      input:focus + .slider {
+        box-shadow: 0 0 1px #2196F3;
+      }
+      
+      input:checked + .slider:before {
+        -webkit-transform: translateX(26px);
+        -ms-transform: translateX(26px);
+        transform: translateX(26px);
+      }
+      
+      /* Rounded sliders */
+      .slider.round {
+        border-radius: 34px;
+      }
+      
+      .slider.round:before {
+        border-radius: 50%;
+      }
+
+      #time {
+        position: fixed;
+        top: 0;
+        right: 0;
+        background-color: white;
+        padding: 10px;
+        border: 1px solid rgb(255, 255, 255);
+        font-size: 25px;
+      }
+      .fanspeed  {
+        float: left ; /* Đặt div bên trái */ 
+        width: 50%; /* Đặt chiều rộng của div là 50% */
+      }
+      .toggle {
+        float: right; /* Đặt div bên phải */
+        width: 50%; /* Đặt chiều rộng của div là 50% */
+      }
+      .vitualvoice {
+        float: right; /* Đặt div bên phải */
+        width: 50%; /* Đặt chiều rộng của div là 50% */
+      }
+      .container {
+        float: right ; /* Đặt div bên trái */ 
+        width: 50%; /* Đặt chiều rộng của div là 50% */
+      }
+      .vitualvoice .container{
+        display: inline-block;
+      }
+      .fixed-button {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+      }
+
+  </style>
+</head>
+<body>
+  <div id="time"></div>
+  <div class="topnav">
+    <h1>ESP32 DASHBOARD</h1>
+  </div>
+  <div class="content">
+    <div class="cards">
+      <div class="card temperature">
+        <p class="card-title"><i class="fas fa-thermometer-half"></i> BOARD - TEMPERATURE</p><p><span class="reading"><span id="t1"></span> &deg;C</span></p><p class="timestamp">Last Reading: <span id="rt1"></span></p>
+      </div>
+      <div class="card humidity">
+        <p class="card-title"><i class="fas fa-tint"></i> BOARD - HUMIDITY</p><p><span class="reading"><span id="h1"></span> &percnt;</span></p><p class="timestamp">Last Reading: <span id="rh1"></span></p>
+      </div> 
+    </div>
+  </div>
+
+<button class="fixed-button" type="button" onclick="captureTime()"> Capture time </button>
+
+<div class="toggle">
+<h1>Toggle Switch</h1>
+<label class="switch" id="switch1">
+  <input type="checkbox" checked id="myCheck1" onclick="myFunction1()">
+  <span class="slider round"></span>
+</label>
+</div>  
+  <div class="fanspeed">
+    <h1>Fan Speed Control</h1>
+    <input type="range" min="1" max="100" value="50" class="sliderFAN" id="myRange">
+    <p class="textvalue">Value: <span id="demo"></span></p>
+  </div>
+
+<div class="vitualvoice">
+  <h1>Virtual Assistant</h1>
+  <p>Ask me anything!</p>
+  <input type="text" id="input" placeholder="Speak or type here">
+  <button type="button" onclick="ask()">Ask</button>
+  <br>
+  <br>
+  <p id="output"></p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jscolor/2.0.4/jscolor.min.js">
+  function update(picker) {
+  document.getElementById('rgb').innerHTML = Math.round(picker.rgb[0]) + ', ' +  Math.round(picker.rgb[1]) + ', ' + Math.round(picker.rgb[2])};
+</script>
+
+<script>
+    // Refresh the page
+    var xhttp1 = new XMLHttpRequest();
+    xhttp1.onreadystatechange = function () { 
+        const obj = JSON.parse(this.responseText);
+        var element1 = document.getElementById('t1');
+        element1.innerText = obj.temperature;
+        var element2 = document.getElementById('h1');
+        element2.innerText = obj.humidity;
+    }
+
+    setInterval(function() {
+        xhttp1.open("GET", "/updatedata",true);
+        xhttp1.send();
+     }, 1000);
+    
+     function myFunction1(){
+        var checkBox = document.getElementById("myCheck1");
+        if(checkBox.checked == true){
+            xhttp1.open("POST", "/switch1",true);
+            xhttp1.send("1");
+        }
+        else{
+            xhttp1.open("POST", "/switch1",true);
+            xhttp1.send("0");
+        }
+    }
+    
+    // Function for slider change FAN speed
+    var slider = document.getElementById("myRange");
+    var output = document.getElementById("demo");
+    output.innerHTML = slider.value;
+
+    slider.oninput = function() {
+      output.innerHTML = this.value;
+      xhttp1.open("POST", "/fanspeed",true);
+      xhttp1.send(this.value);
+    }
+    
+    function ChangeColor()
+    {
+      var color = document.getElementById('rgb').value;
+      xhttp1.open('GET','/rgb?color='+color);
+      xhttp1.send();
+    }
+
+    // Initialize speech recognition and synthesis objects
+    const recognition = new window.webkitSpeechRecognition();
+    const synthesis = window.speechSynthesis;
+
+    // Set up recognition settings
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    // Set up answer list
+    const answers = [
+      { question: 'turn on', answer: '1' },
+      { question: 'turn off', answer: '0'},
+      { question: 'what time is it', answer: '2'},
+      { question: 'decrease temperature', answer: '3'},
+      { question: 'increase temperature', answer: '4'},
+      { question: 'when did i go out', answer: '5'},
+      { question: 'speed up', answer: '6'},
+      { question: 'speed down', answer: '7'},
+    ];
+    
+    // Function to handle speech recognition result
+    recognition.onresult = function(event) {
+      const result = event.results[0][0].transcript;
+      document.getElementById('input').value = result;
+      ask(result);
+    }
+
+    // Function to handle speech recognition error
+    recognition.onerror = function(event) {
+      console.error(event.error);
+    }
+
+    // Function to ask a question and get an answer
+    function ask(question) {
+      if (question) {
+        document.getElementById('input').value = question;
+      } else {
+        question = document.getElementById('input').value;
+      }
+      const answer = getAnswer(question);
+      document.getElementById('output').innerHTML = answer;
+      speak(answer);
+    }
+
+    // Function to get an answer for a given question
+    function getAnswer(question) {
+      for (let i = 0; i < answers.length; i++) {
+        const answer = answers[i];
+        if (question.toLowerCase().includes(answer.question.toLowerCase())) {
+          xhttp1.open("POST", "/voice",true);
+          xhttp1.send(answer.answer);
+          return answer.answer;
+        }
+      }
+      return "I am sorry, I do not understand your question.";
+    }
+
+    // Function to speak a given text
+    function speak(text) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      synthesis.speak(utterance);
+    }
+
+    // Function to start speech recognition
+    function start() {
+      recognition.start();
+    }
+   
+    var timeDiv = document.getElementById("time");
+    // Cập nhật giờ hiện tại
+    function updateTime() {
+      var date = new Date();
+      var hours = date.getHours();
+      var minutes = date.getMinutes();
+      var seconds = date.getSeconds();
+      var timeString = hours + ":" + minutes + ":" + seconds;
+      timeDiv.innerHTML = timeString;
+      xhttp1.open("POST", "/timescreen",true);
+      xhttp1.send(timeString);
+    }
+    function captureTime(){
+      var date = new Date();
+      var hours = date.getHours();
+      var minutes = date.getMinutes();
+      var seconds = date.getSeconds();
+      var timeString = hours + ":" + minutes + ":" + seconds;
+      timeDiv.innerHTML = timeString;
+      xhttp1.open("POST", "/timecapture",true);
+      xhttp1.send(timeString);
+
+    }
+
+    // Cập nhật giờ mỗi giây
+    setInterval(updateTime, 1000);
+    // Start speech recognition when page is loaded
+    start();
+    
+</script>
+</body>
+</html>
+
